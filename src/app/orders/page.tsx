@@ -1,15 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "../../lib/supabase/client";
 import Image from "next/image";
 import Link from "next/link";
+import { Scanner } from "@yudiel/react-qr-scanner";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [filter, setFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
   const supabase = createClient();
+
+  const fetchOrders = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("print_orders")
+      .select("*, pods(name, location)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setOrders(data);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -24,7 +42,7 @@ export default function OrdersPage() {
           schema: "public",
           table: "print_orders",
         },
-        (payload) => {
+        (payload: any) => {
           setOrders((prev) =>
             prev.map((o) =>
               o.id === payload.new.id ? { ...o, status: payload.new.status } : o
@@ -37,23 +55,7 @@ export default function OrdersPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
-
-  async function fetchOrders() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from("print_orders")
-      .select("*, pods(name, location)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setOrders(data);
-    }
-    setLoading(false);
-  }
+  }, [supabase]);
 
   const handleConfirmPrint = async (orderId: string) => {
     try {
@@ -197,6 +199,68 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+
+      {/* Floating Action Button for Scanning */}
+      <button
+        onClick={() => setScanning(true)}
+        style={{
+          position: "fixed",
+          bottom: "100px",
+          right: "24px",
+          width: "64px",
+          height: "64px",
+          borderRadius: "32px",
+          background: "var(--primary)",
+          color: "white",
+          border: "none",
+          boxShadow: "var(--shadow-lg)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "28px",
+          cursor: "pointer",
+          zIndex: 100
+        }}
+        aria-label="Scan Pod QR Code"
+      >
+        📷
+      </button>
+
+      {/* Full-screen Scanner Modal */}
+      {scanning && (
+        <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", zIndex: 9999, background: "black" }}>
+          <div style={{ position: "absolute", top: "40px", left: 0, right: 0, textAlign: "center", color: "white", zIndex: 10000, fontSize: "18px", fontWeight: 600 }}>
+            Scan PrintPod QR Code
+          </div>
+          <Scanner 
+            onScan={(result) => { 
+              if (result && result.length > 0 && result[0]?.rawValue) {
+                 setScanning(false);
+                 window.location.href = result[0].rawValue;
+              } 
+            }} 
+          />
+          <button 
+            onClick={() => setScanning(false)} 
+            style={{ 
+              position: "absolute", 
+              bottom: "40px", 
+              left: "50%", 
+              transform: "translateX(-50%)", 
+              zIndex: 10000, 
+              padding: "16px 32px", 
+              background: "white", 
+              color: "black",
+              border: "none",
+              borderRadius: "32px",
+              fontWeight: 700,
+              fontSize: "16px"
+            }}
+          >
+            Cancel Scan
+          </button>
+        </div>
+      )}
     </div>
   );
 }
