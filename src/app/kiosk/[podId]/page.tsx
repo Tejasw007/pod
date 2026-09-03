@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "../../../lib/supabase/client";
 import QRCode from "qrcode";
+import { Printer, CheckCircle, Smartphone, Loader2 } from "lucide-react";
 
 export default function KioskPage() {
   const { podId } = useParams(); // e.g., 'POD-001'
@@ -168,20 +169,26 @@ export default function KioskPage() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px" }}>
         
         {activeOrder ? (
-          <div style={{ textAlign: "center", animation: "fadeInUp 0.5s ease" }}>
-            <div style={{ fontSize: "64px", marginBottom: "24px" }}>
-              {activeOrder.status === "PRINTING" ? "🖨️" : activeOrder.status === "PRINTED" ? "✅" : "📱"}
+          <div style={{ textAlign: "center", width: "100%" }}>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "24px" }}>
+              {activeOrder.status === "PRINTING" ? (
+                <Loader2 size={64} color="var(--primary)" style={{ animation: "spin 2s linear infinite" }} />
+              ) : activeOrder.status === "PRINTED" ? (
+                <CheckCircle size={64} strokeWidth={1} color="var(--success)" />
+              ) : (
+                <Smartphone size={64} strokeWidth={1} color="var(--text-secondary)" />
+              )}
             </div>
-            <h2 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "16px" }}>
+            <h2 style={{ fontSize: "28px", fontWeight: 700, marginBottom: "16px" }}>
               {activeOrder.status === "PRINTING" ? "Printing in progress..." : 
-               activeOrder.status === "PRINTED" ? "Collect your documents!" : 
+               activeOrder.status === "PRINTED" ? "Collect your documents" : 
                "Connected successfully"}
             </h2>
 
             {activeOrder.status === "POD_CONNECTED" && (
               <div style={{ marginTop: "24px", width: "100%", maxWidth: "600px", margin: "0 auto", textAlign: "left" }}>
-                <div style={{ background: "var(--surface)", padding: "24px", borderRadius: "16px", marginBottom: "24px", border: "1px solid var(--border)" }}>
-                  <h3 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "24px", textAlign: "center" }}>
+                <div style={{ background: "var(--surface)", padding: "24px", borderRadius: "var(--radius-lg)", marginBottom: "24px", border: "1px solid var(--border)" }}>
+                  <h3 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "24px", textAlign: "center" }}>
                     Confirm Print Job
                   </h3>
                   
@@ -203,24 +210,40 @@ export default function KioskPage() {
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Color Mode</div>
-                      <div style={{ fontSize: "18px", fontWeight: 600 }}>
-                        {activeOrder.color_mode === 'bw' ? '⚫ Black & White' : '🔴 Color'}
+                      <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Color Mode</div>
+                      <div style={{ fontSize: "16px", fontWeight: 600 }}>
+                        {activeOrder.color_mode === 'bw' ? 'Black & White' : 'Color'}
                       </div>
                     </div>
                   </div>
 
                   {activeOrder.file_drive_link && (
-                    <div>
-                      <div style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "8px" }}>Document Preview</div>
-                      <div style={{ border: "2px solid var(--border)", borderRadius: "8px", overflow: "hidden", height: "350px", position: "relative" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+                      <div style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "8px", width: "100%", textAlign: "left" }}>Document Preview</div>
+                      <div style={{ 
+                        border: "2px solid var(--border)", 
+                        borderRadius: "8px", 
+                        overflow: "hidden", 
+                        position: "relative",
+                        width: "100%",
+                        maxWidth: "280px",
+                        aspectRatio: "1 / 1.414", // A4 paper ratio
+                        background: "#f8f9fa",
+                        boxShadow: "var(--shadow-sm)"
+                      }}>
                         <iframe 
-                          src={activeOrder.file_drive_link} 
-                          width="100%" 
-                          height="100%" 
+                          src={activeOrder.file_drive_link.replace(/\/view.*/, "/preview")} 
                           title="Document Preview" 
                           style={{ 
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "200%", 
+                            height: "200%",
+                            transform: "scale(0.5)",
+                            transformOrigin: "top left",
                             border: "none",
+                            pointerEvents: "none", // Prevent scrolling entirely!
                             filter: activeOrder.color_mode === 'bw' ? 'grayscale(100%) contrast(1.1)' : 'none'
                           }} 
                         />
@@ -231,33 +254,33 @@ export default function KioskPage() {
                 
                 <button 
                   className="btn-primary" 
-                  style={{ fontSize: "20px", padding: "16px 48px", borderRadius: "32px", width: "100%" }}
+                  style={{ fontSize: "18px", padding: "16px 32px", borderRadius: "32px", width: "100%", display: "flex", gap: "12px", justifyContent: "center" }}
                   onClick={handlePodPrintNow}
                 >
-                  🖨️ Confirm & Print Now
+                  <Printer size={24} /> Confirm & Print
                 </button>
               </div>
             )}
 
-            <p style={{ fontSize: "20px", color: "var(--text-secondary)", marginTop: "16px" }}>
+            <p style={{ fontSize: "16px", color: "var(--text-secondary)", marginTop: "24px" }}>
               {activeOrder.status === "PRINTING" && `Printing ${activeOrder.page_count * activeOrder.copies} pages. Do not pull the paper.`}
             </p>
           </div>
         ) : (
           <>
-            <h2 style={{ fontSize: "36px", fontWeight: 800, marginBottom: "24px", color: "var(--text)" }}>Scan to Connect</h2>
+            <h2 style={{ fontSize: "28px", fontWeight: 700, marginBottom: "24px", color: "var(--text)" }}>Scan to Connect</h2>
             
-            <div style={{ background: "white", padding: "16px", borderRadius: "16px", boxShadow: "var(--shadow-lg)", marginBottom: "16px" }}>
+            <div style={{ background: "white", padding: "16px", borderRadius: "16px", boxShadow: "var(--shadow-md)", marginBottom: "16px", border: "1px solid var(--border)" }}>
               {qrDataUrl ? (
                 <img src={qrDataUrl} alt="QR Code" style={{ width: 250, height: 250 }} />
               ) : (
                 <div style={{ width: 250, height: 250, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--surface)" }}>
-                  <span className="spinner"></span>
+                  <Loader2 size={32} color="var(--text-secondary)" style={{ animation: "spin 1s linear infinite" }} />
                 </div>
               )}
             </div>
             
-            <p style={{ fontSize: "18px", color: "var(--text-secondary)", marginBottom: "32px" }}>Point your phone camera at this QR code</p>
+            <p style={{ fontSize: "16px", color: "var(--text-secondary)", marginBottom: "32px" }}>Point your phone camera at this QR code</p>
 
             <div className="divider-text" style={{ width: "400px" }}>
               <span>OR</span>

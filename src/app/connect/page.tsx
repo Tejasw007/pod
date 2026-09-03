@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { FileText, CheckCircle2, CheckCircle, Loader2 } from "lucide-react";
 
 function ConnectPageContent() {
   const searchParams = useSearchParams();
@@ -112,13 +113,16 @@ function ConnectPageContent() {
     // Confirmation screen
     return (
       <div className="container" style={{ paddingTop: "24px" }}>
-        <div style={{ background: "var(--primary)", color: "white", padding: "16px", borderRadius: "12px", textAlign: "center", marginBottom: "24px" }}>
-          <div style={{ fontSize: "16px", fontWeight: 600 }}>Connected to PrintPod ✓</div>
+        <div style={{ background: "var(--primary-50)", color: "var(--primary-dark)", padding: "16px", borderRadius: "var(--radius-lg)", border: "1px solid var(--border)", textAlign: "center", marginBottom: "24px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+          <CheckCircle2 size={18} />
+          <div style={{ fontSize: "14px", fontWeight: 600 }}>Connected to PrintPod</div>
         </div>
 
-        <div className="card" style={{ marginBottom: "24px" }}>
-          <div style={{ display: "flex", gap: "16px", marginBottom: "16px" }}>
-            <div style={{ fontSize: "32px" }}>📄</div>
+        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "20px", background: "white", marginBottom: "24px" }}>
+          <div style={{ display: "flex", gap: "16px", marginBottom: "20px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "40px", height: "40px", background: "var(--surface)", borderRadius: "8px" }}>
+              <FileText size={20} color="var(--primary)" />
+            </div>
             <div style={{ flex: 1, overflow: "hidden" }}>
               <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{connectedOrder.file_name}</div>
               <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
@@ -127,20 +131,20 @@ function ConnectPageContent() {
             </div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
             <span style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Total Amount</span>
-            <span style={{ fontWeight: 600 }}>₹{connectedOrder.total_price}</span>
+            <span style={{ fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>₹{connectedOrder.total_price}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Payment Status</span>
-            <span className="badge badge-paid">PAID ✓</span>
+            <span className="badge badge-paid">Paid</span>
           </div>
         </div>
 
         {connectedOrder.status === "POD_CONNECTED" && (
           <>
-            <button className="btn-primary" onClick={handleConfirmPrint} style={{ width: "100%", padding: "16px", fontSize: "18px", marginBottom: "16px" }}>
-              CONFIRM & PRINT
+            <button className="btn-primary" onClick={handleConfirmPrint} style={{ width: "100%", padding: "16px", fontSize: "16px", marginBottom: "16px" }}>
+              Confirm & Print
             </button>
             <p style={{ textAlign: "center", fontSize: "13px", color: "var(--text-secondary)" }}>
               Your document will start printing immediately.
@@ -149,17 +153,19 @@ function ConnectPageContent() {
         )}
 
         {connectedOrder.status === "PRINTING" && (
-          <div style={{ textAlign: "center", padding: "32px 16px" }}>
-            <div className="spinner" style={{ width: 40, height: 40, borderWidth: 4, margin: "0 auto 24px", borderColor: "var(--border)", borderTopColor: "var(--warning)" }}></div>
-            <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>Printing in progress...</h2>
+          <div style={{ textAlign: "center", padding: "40px 16px" }}>
+            <Loader2 className="spinner" size={32} color="var(--text-secondary)" style={{ margin: "0 auto 24px", animation: "spin 1s linear infinite", border: "none" }} />
+            <h2 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "8px" }}>Printing in progress</h2>
             <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Please wait at the pod. Do not pull the paper.</p>
           </div>
         )}
 
         {connectedOrder.status === "PRINTED" && (
-          <div style={{ textAlign: "center", padding: "32px 16px" }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>✅</div>
-            <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>Print Complete!</h2>
+          <div style={{ textAlign: "center", padding: "40px 16px" }}>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "24px" }}>
+              <CheckCircle size={48} strokeWidth={1} color="var(--success)" />
+            </div>
+            <h2 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "8px" }}>Print Complete</h2>
             <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "32px" }}>Don't forget to collect your documents.</p>
             <button className="btn-secondary" onClick={() => router.push("/orders")} style={{ width: "100%" }}>
               Back to My Orders
@@ -188,18 +194,24 @@ function ConnectPageContent() {
             {orders.map(order => (
               <div 
                 key={order.id} 
-                className="card" 
                 style={{ 
                   padding: "16px", 
                   cursor: "pointer", 
                   border: selectedOrderId === order.id ? "2px solid var(--primary)" : "1px solid var(--border)",
-                  boxShadow: selectedOrderId === order.id ? "0 4px 12px rgba(34, 197, 94, 0.15)" : "var(--shadow-sm)"
+                  borderRadius: "var(--radius-lg)",
+                  background: "white",
+                  boxShadow: selectedOrderId === order.id ? "var(--shadow-sm)" : "none"
                 }}
                 onClick={() => setSelectedOrderId(order.id)}
               >
-                <div style={{ fontWeight: 600, marginBottom: "4px" }}>{order.file_name}</div>
-                <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                  {order.page_count} pages • {order.copies} copies • ₹{order.total_price}
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <FileText size={20} color="var(--text-secondary)" />
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: "2px", fontSize: "15px" }}>{order.file_name}</div>
+                    <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                      {order.page_count} pages • {order.copies} copies • ₹{order.total_price}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}

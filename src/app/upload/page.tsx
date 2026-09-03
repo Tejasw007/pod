@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { FileUp, FileText, X } from "lucide-react";
 
 export default function UploadPage() {
   const router = useRouter();
@@ -90,7 +91,9 @@ export default function UploadPage() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>📄</div>
+            <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center" }}>
+              <FileUp size={48} strokeWidth={1.5} color="var(--text-secondary)" />
+            </div>
             <p style={{ fontWeight: 600, marginBottom: "8px" }}>Drag & drop your file here</p>
             <p style={{ color: "var(--text-secondary)", fontSize: "13px", marginBottom: "24px" }}>Supported: PDF, DOCX, PPTX (Max 100MB)</p>
             
@@ -105,20 +108,24 @@ export default function UploadPage() {
             </label>
           </div>
         ) : (
-          <div className="card page-enter" style={{ marginBottom: "24px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
-              <div style={{ fontSize: "32px" }}>📄</div>
+          <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "white" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "40px", height: "40px", background: "var(--surface)", borderRadius: "8px" }}>
+                <FileText size={20} color="var(--primary)" />
+              </div>
               <div style={{ flex: 1, overflow: "hidden" }}>
                 <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</div>
                 <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
                   {(file.size / 1024 / 1024).toFixed(2)} MB • {pages} pages
                 </div>
               </div>
-              <button onClick={() => setFile(null)} style={{ background: "none", border: "none", color: "var(--error)", cursor: "pointer", padding: "8px" }}>✕</button>
+              <button onClick={() => setFile(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: "8px", display: "flex" }}>
+                <X size={20} />
+              </button>
             </div>
 
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: "24px" }}>
-              <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px" }}>Print Configuration</h3>
+            <div style={{ borderTop: "1px solid var(--border)", padding: "20px", background: "var(--surface-dim)" }}>
+              <h3 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "16px", color: "var(--text)" }}>Print Configuration</h3>
               
               <div style={{ display: "grid", gap: "16px" }}>
                 <div>

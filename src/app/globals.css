@@ -2,35 +2,35 @@
 @import "tailwindcss";
 
 :root {
-  /* Primary Green */
-  --primary: #22C55E;
-  --primary-dark: #16A34A;
-  --primary-light: #DCFCE7;
-  --primary-50: #F0FDF4;
+  /* Primary Slate/Teal for a mature hardware-software look */
+  --primary: #0F172A;
+  --primary-dark: #020617;
+  --primary-light: #E2E8F0;
+  --primary-50: #F8FAFC;
 
   /* Neutrals */
   --bg: #FFFFFF;
-  --surface: #F8FAF9;
-  --surface-dim: #F1F5F3;
-  --text: #1A1A2E;
-  --text-secondary: #6B7280;
-  --border: #E5E7EB;
-  --border-focus: #22C55E;
+  --surface: #F8FAFC;
+  --surface-dim: #F1F5F9;
+  --text: #0F172A;
+  --text-secondary: #475569;
+  --border: #E2E8F0;
+  --border-focus: #0F172A;
 
   /* Semantic */
-  --success: #22C55E;
+  --success: #10B981;
   --warning: #F59E0B;
   --error: #EF4444;
   --info: #3B82F6;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+  /* Restrained Shadows */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08);
 
-  /* Radius */
-  --radius: 12px;
-  --radius-lg: 16px;
+  /* Professional tight radii */
+  --radius: 6px;
+  --radius-lg: 8px;
   --radius-full: 9999px;
 }
 
@@ -74,12 +74,10 @@ code, .mono {
 
 .btn-primary:hover {
   background: var(--primary-dark);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
 }
 
 .btn-primary:active {
-  transform: translateY(0);
+  transform: translateY(1px);
 }
 
 .btn-primary:disabled {
@@ -115,9 +113,9 @@ code, .mono {
 .card {
   background: white;
   border-radius: var(--radius-lg);
-  padding: 24px;
-  box-shadow: var(--shadow-md);
+  padding: 20px;
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Inputs */
@@ -136,7 +134,7 @@ code, .mono {
 
 .input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+  box-shadow: 0 0 0 1px var(--primary);
 }
 
 .input::placeholder {
@@ -157,22 +155,17 @@ code, .mono {
   letter-spacing: 0.02em;
 }
 
-.badge-ready { background: #DCFCE7; color: #166534; }
+.badge-ready { background: #ECFDF5; color: #047857; }
 .badge-printing { background: #FEF3C7; color: #92400E; }
-.badge-printed { background: #F3F4F6; color: #6B7280; }
-.badge-cancelled { background: #FEE2E2; color: #991B1B; }
-.badge-failed { background: #FEE2E2; color: #991B1B; }
-.badge-paid { background: #DCFCE7; color: #166534; }
+.badge-printed { background: #F1F5F9; color: #475569; }
+.badge-cancelled { background: #FEF2F2; color: #991B1B; }
+.badge-failed { background: #FEF2F2; color: #991B1B; }
+.badge-paid { background: #ECFDF5; color: #047857; }
 .badge-pending { background: #FEF3C7; color: #92400E; }
 
-/* Pulse animation for printing state */
-@keyframes pulse-amber {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
+/* Removed pulse animation for a calmer UI */
 .badge-printing {
-  animation: pulse-amber 2s ease-in-out infinite;
+  /* static style */
 }
 
 /* Container */
@@ -298,7 +291,7 @@ code, .mono {
 
 .code-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+  box-shadow: 0 0 0 1px var(--primary);
 }
 
 /* Toggle pills */
@@ -315,7 +308,7 @@ code, .mono {
   padding: 8px 16px;
   border: none;
   background: transparent;
-  border-radius: 8px;
+  border-radius: var(--radius);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -372,26 +365,12 @@ code, .mono {
 }
 
 .spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid var(--border);
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
   border-top-color: var(--primary);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin 0.6s linear infinite;
 }
 
-/* Page transitions */
-.page-enter {
-  animation: fadeInUp 0.3s ease;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Removed page-enter animation for instantaneous interaction feel */

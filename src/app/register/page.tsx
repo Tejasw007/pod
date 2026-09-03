@@ -62,7 +62,7 @@ export default function RegisterPage() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(180deg, #F0FDF4 0%, #FFFFFF 50%)",
+        background: "var(--bg)",
         padding: "24px",
       }}
     >

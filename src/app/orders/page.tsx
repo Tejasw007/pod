@@ -5,6 +5,7 @@ import { createClient } from "../../lib/supabase/client";
 import Image from "next/image";
 import Link from "next/link";
 import { Scanner } from "@yudiel/react-qr-scanner";
+import { ScanLine, ClipboardList, MapPin } from "lucide-react";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -129,17 +130,19 @@ export default function OrdersPage() {
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: "40px" }}>Loading...</div>
+          <div style={{ textAlign: "center", padding: "40px", color: "var(--text-secondary)" }}>Loading...</div>
         ) : filteredOrders.length === 0 ? (
-          <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
-            <div style={{ fontSize: "40px", marginBottom: "16px" }}>📋</div>
-            <h3 style={{ fontWeight: 600, marginBottom: "8px" }}>No orders found</h3>
+          <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "white", textAlign: "center", padding: "64px 24px" }}>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
+              <ClipboardList size={48} strokeWidth={1} color="var(--border)" />
+            </div>
+            <h3 style={{ fontWeight: 600, marginBottom: "8px", fontSize: "16px" }}>No pending documents</h3>
             <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Upload a document to get started.</p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {filteredOrders.map((order) => (
-              <div key={order.id} className="card page-enter" style={{ padding: "20px" }}>
+              <div key={order.id} style={{ padding: "20px", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", background: "white" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
                   <span className={`badge ${getBadgeClass(order.status)}`}>{formatStatus(order.status)}</span>
                   <span style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 }}>
@@ -162,8 +165,8 @@ export default function OrdersPage() {
                 )}
 
                 {order.pods && (
-                  <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "16px", display: "flex", alignItems: "center", gap: "4px" }}>
-                    📍 {order.pods.name} - {order.pods.location}
+                  <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "16px", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <MapPin size={14} /> {order.pods.name} - {order.pods.location}
                   </div>
                 )}
 
@@ -207,9 +210,9 @@ export default function OrdersPage() {
           position: "fixed",
           bottom: "100px",
           right: "24px",
-          width: "64px",
-          height: "64px",
-          borderRadius: "32px",
+          width: "56px",
+          height: "56px",
+          borderRadius: "28px",
           background: "var(--primary)",
           color: "white",
           border: "none",
@@ -217,13 +220,12 @@ export default function OrdersPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: "28px",
           cursor: "pointer",
           zIndex: 100
         }}
         aria-label="Scan Pod QR Code"
       >
-        📷
+        <ScanLine size={24} />
       </button>
 
       {/* Full-screen Scanner Modal */}
