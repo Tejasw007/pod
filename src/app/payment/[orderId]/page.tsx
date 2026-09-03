@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import ReceiptPrinter from "@/components/ReceiptPrinter";
+import { createClient } from "../../../lib/supabase/client";
+import ReceiptPrinter from "../../../components/ReceiptPrinter";
 
 export default function PaymentPage() {
   const { orderId } = useParams();

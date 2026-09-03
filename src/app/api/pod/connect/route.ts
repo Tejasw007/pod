@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createServerClient } from "@supabase/ssr"; 
+import { createAdminClient } from "../../../../lib/supabase/admin";
 import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
@@ -32,10 +32,14 @@ export async function POST(request: Request) {
         .single();
 
       if (updatedOrder) {
+        let userName = "Student";
+        const { data: profile } = await supabaseAdmin.from("profiles").select("full_name").eq("id", updatedOrder.user_id).single();
+        if (profile) userName = profile.full_name;
+
         await supabaseAdmin.channel(`pod_${podDbId}`).send({
           type: "broadcast",
           event: "order_update",
-          payload: updatedOrder
+          payload: { ...updatedOrder, user_name: userName }
         });
       }
 
@@ -81,10 +85,14 @@ export async function POST(request: Request) {
       if (error) return NextResponse.json({ error: "Failed to connect order" }, { status: 400 });
 
       if (updatedOrder) {
+        let userName = "Student";
+        const { data: profile } = await supabaseAdmin.from("profiles").select("full_name").eq("id", user.id).single();
+        if (profile) userName = profile.full_name;
+
         await supabaseAdmin.channel(`pod_${session.pod_id}`).send({
           type: "broadcast",
           event: "order_update",
-          payload: updatedOrder
+          payload: { ...updatedOrder, user_name: userName }
         });
       }
 

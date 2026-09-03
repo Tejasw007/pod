@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "../../../lib/supabase/client";
 import QRCode from "qrcode";
 
 export default function KioskPage() {
@@ -33,7 +33,7 @@ export default function KioskPage() {
       .on(
         "broadcast",
         { event: "order_update" },
-        (payload) => {
+        (payload: any) => {
           handleOrderStateChange(payload.payload);
         }
       )
@@ -179,23 +179,62 @@ export default function KioskPage() {
             </h2>
 
             {activeOrder.status === "POD_CONNECTED" && (
-              <div style={{ marginTop: "24px", width: "100%", maxWidth: "600px", margin: "0 auto" }}>
-                <p style={{ fontSize: "20px", color: "var(--text-secondary)", marginBottom: "16px" }}>
-                  Please confirm the print job below or on your phone.
-                </p>
-                
-                {activeOrder.file_drive_link && (
-                  <div style={{ border: "1px solid var(--border)", borderRadius: "8px", overflow: "hidden", marginBottom: "24px", height: "400px" }}>
-                    <iframe src={activeOrder.file_drive_link} width="100%" height="100%" title="Document Preview" style={{ border: "none" }} />
+              <div style={{ marginTop: "24px", width: "100%", maxWidth: "600px", margin: "0 auto", textAlign: "left" }}>
+                <div style={{ background: "var(--surface)", padding: "24px", borderRadius: "16px", marginBottom: "24px", border: "1px solid var(--border)" }}>
+                  <h3 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "24px", textAlign: "center" }}>
+                    Confirm Print Job
+                  </h3>
+                  
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "24px" }}>
+                    <div>
+                      <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Student Name</div>
+                      <div style={{ fontSize: "18px", fontWeight: 600 }}>{activeOrder.user_name || "Student"}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Document</div>
+                      <div style={{ fontSize: "18px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {activeOrder.file_name}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Total Pages</div>
+                      <div style={{ fontSize: "18px", fontWeight: 600 }}>
+                        {activeOrder.page_count * activeOrder.copies} ({activeOrder.page_count} pages × {activeOrder.copies} copies)
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Color Mode</div>
+                      <div style={{ fontSize: "18px", fontWeight: 600 }}>
+                        {activeOrder.color_mode === 'bw' ? '⚫ Black & White' : '🔴 Color'}
+                      </div>
+                    </div>
                   </div>
-                )}
+
+                  {activeOrder.file_drive_link && (
+                    <div>
+                      <div style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "8px" }}>Document Preview</div>
+                      <div style={{ border: "2px solid var(--border)", borderRadius: "8px", overflow: "hidden", height: "350px", position: "relative" }}>
+                        <iframe 
+                          src={activeOrder.file_drive_link} 
+                          width="100%" 
+                          height="100%" 
+                          title="Document Preview" 
+                          style={{ 
+                            border: "none",
+                            filter: activeOrder.color_mode === 'bw' ? 'grayscale(100%) contrast(1.1)' : 'none'
+                          }} 
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
                 
                 <button 
                   className="btn-primary" 
                   style={{ fontSize: "20px", padding: "16px 48px", borderRadius: "32px", width: "100%" }}
                   onClick={handlePodPrintNow}
                 >
-                  🖨️ Print Now
+                  🖨️ Confirm & Print Now
                 </button>
               </div>
             )}
