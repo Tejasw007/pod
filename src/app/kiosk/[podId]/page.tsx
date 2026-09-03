@@ -20,26 +20,21 @@ export default function KioskPage() {
 
   useEffect(() => {
     initSession();
-    const interval = setInterval(initSession, 4.5 * 60 * 1000); // refresh token before 5 min expiry
+    const interval = setInterval(initSession, 1 * 60 * 1000); // refresh token every 1 min
     return () => clearInterval(interval);
   }, [podId]);
 
   useEffect(() => {
     if (!session?.podDbId) return;
 
-    // Listen for order updates mapped to this pod
+    // Listen for order updates mapped to this pod via broadcast
     const channel = supabase
       .channel(`pod_${session.podDbId}`)
       .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "print_orders",
-          filter: `pod_id=eq.${session.podDbId}`,
-        },
+        "broadcast",
+        { event: "order_update" },
         (payload) => {
-          handleOrderStateChange(payload.new);
+          handleOrderStateChange(payload.payload);
         }
       )
       .subscribe();

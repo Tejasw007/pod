@@ -24,10 +24,20 @@ export async function POST(request: Request) {
       if (!order) return NextResponse.json({ error: "Invalid code or order not ready" }, { status: 404 });
 
       // Connect order to pod
-      await supabaseAdmin
+      const { data: updatedOrder } = await supabaseAdmin
         .from("print_orders")
         .update({ status: "POD_CONNECTED", pod_id: podDbId })
-        .eq("id", order.id);
+        .eq("id", order.id)
+        .select()
+        .single();
+
+      if (updatedOrder) {
+        await supabaseAdmin.channel(`pod_${podDbId}`).send({
+          type: "broadcast",
+          event: "order_update",
+          payload: updatedOrder
+        });
+      }
 
       return NextResponse.json({ success: true, orderId: order.id });
     }
@@ -59,14 +69,24 @@ export async function POST(request: Request) {
       if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
       // Connect order to pod
-      const { error } = await supabase
+      const { data: updatedOrder, error } = await supabase
         .from("print_orders")
         .update({ status: "POD_CONNECTED", pod_id: session.pod_id })
         .eq("id", orderId)
         .eq("user_id", user.id)
-        .eq("status", "READY_FOR_PRINT");
+        .eq("status", "READY_FOR_PRINT")
+        .select()
+        .single();
 
       if (error) return NextResponse.json({ error: "Failed to connect order" }, { status: 400 });
+
+      if (updatedOrder) {
+        await supabaseAdmin.channel(`pod_${session.pod_id}`).send({
+          type: "broadcast",
+          event: "order_update",
+          payload: updatedOrder
+        });
+      }
 
       return NextResponse.json({ success: true });
     }

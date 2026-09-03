@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     if (action === "PRINT_COMPLETE") {
       const { data: order } = await supabaseAdmin
         .from("print_orders")
-        .select("file_drive_id")
+        .select("file_drive_id, pod_id")
         .eq("id", orderId)
         .eq("status", "PRINTING")
         .single();
@@ -31,7 +31,21 @@ export async function POST(request: Request) {
       }
 
       // Mark as PRINTED
-      await supabaseAdmin.from("print_orders").update({ status: "PRINTED" }).eq("id", orderId);
+      const { data: updatedOrder } = await supabaseAdmin
+        .from("print_orders")
+        .update({ status: "PRINTED" })
+        .eq("id", orderId)
+        .select()
+        .single();
+
+      if (updatedOrder && order.pod_id) {
+        await supabaseAdmin.channel(`pod_${order.pod_id}`).send({
+          type: "broadcast",
+          event: "order_update",
+          payload: updatedOrder
+        });
+      }
+
       return NextResponse.json({ success: true });
     }
 
@@ -47,14 +61,25 @@ export async function POST(request: Request) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-      const { error } = await supabase
+      const { data: updatedOrder, error } = await supabase
         .from("print_orders")
         .update({ status: "PRINTING" })
         .eq("id", orderId)
         .eq("user_id", user.id)
-        .eq("status", "POD_CONNECTED");
+        .eq("status", "POD_CONNECTED")
+        .select()
+        .single();
 
       if (error) return NextResponse.json({ error: "Failed to start printing" }, { status: 400 });
+
+      if (updatedOrder && updatedOrder.pod_id) {
+        await supabaseAdmin.channel(`pod_${updatedOrder.pod_id}`).send({
+          type: "broadcast",
+          event: "order_update",
+          payload: updatedOrder
+        });
+      }
+
       return NextResponse.json({ success: true });
     }
 
