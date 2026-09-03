@@ -164,9 +164,6 @@ code, .mono {
 .badge-pending { background: #FEF3C7; color: #92400E; }
 
 /* Removed pulse animation for a calmer UI */
-.badge-printing {
-  /* static style */
-}
 
 /* Container */
 .container {
