@@ -32,27 +32,40 @@ export default function BottomNav() {
       <Link href="/upload" style={{
         flex: 1,
         textAlign: "center",
-        padding: "16px 0",
+        padding: "12px 0",
         color: pathname === "/upload" ? "var(--primary)" : "var(--text-secondary)",
         textDecoration: "none",
         fontWeight: pathname === "/upload" ? 600 : 500,
-        fontSize: "14px",
+        fontSize: "12px",
       }}>
-        <div style={{ fontSize: "20px", marginBottom: "4px" }}>📄</div>
+        <div style={{ fontSize: "18px", marginBottom: "2px" }}>📄</div>
         Print
       </Link>
-      
+
+      <Link href="/store" style={{
+        flex: 1,
+        textAlign: "center",
+        padding: "12px 0",
+        color: pathname === "/store" || pathname === "/cart" ? "var(--primary)" : "var(--text-secondary)",
+        textDecoration: "none",
+        fontWeight: pathname === "/store" || pathname === "/cart" ? 600 : 500,
+        fontSize: "12px",
+      }}>
+        <div style={{ fontSize: "18px", marginBottom: "2px" }}>🛒</div>
+        Store
+      </Link>
+
       <Link href="/orders" style={{
         flex: 1,
         textAlign: "center",
-        padding: "16px 0",
+        padding: "12px 0",
         color: pathname === "/orders" ? "var(--primary)" : "var(--text-secondary)",
         textDecoration: "none",
         fontWeight: pathname === "/orders" ? 600 : 500,
-        fontSize: "14px",
+        fontSize: "12px",
       }}>
-        <div style={{ fontSize: "20px", marginBottom: "4px" }}>📋</div>
-        My Orders
+        <div style={{ fontSize: "18px", marginBottom: "2px" }}>📋</div>
+        Orders
       </Link>
     </div>
   );

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Upload, CreditCard, Printer } from "lucide-react";
+import { Upload, ShoppingBag, Printer, ArrowRight } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -42,14 +42,14 @@ export default function HomePage() {
           style={{
             fontSize: "16px",
             color: "var(--text-secondary)",
-            marginBottom: "48px",
+            marginBottom: "40px",
             lineHeight: 1.5,
           }}
         >
-          Upload, pay, and collect documents at any campus PrintPod location.
+          Upload documents, buy stationery & collect everything at any campus PrintPod.
         </p>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "48px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "32px" }}>
           <Link href="/login" className="btn-primary" style={{ width: "100%", textDecoration: "none", fontSize: "16px", padding: "14px 24px" }}>
             Sign In
           </Link>
@@ -58,45 +58,87 @@ export default function HomePage() {
           </Link>
         </div>
 
+        {/* Two-path cards */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "24px",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "12px",
             borderTop: "1px solid var(--border)",
-            paddingTop: "32px"
+            paddingTop: "32px",
           }}
         >
-          {[
-            { icon: <Upload size={24} strokeWidth={1.5} />, label: "Upload" },
-            { icon: <CreditCard size={24} strokeWidth={1.5} />, label: "Pay" },
-            { icon: <Printer size={24} strokeWidth={1.5} />, label: "Print" },
-          ].map((step, idx) => (
-            <div key={step.label} style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <div style={{ 
-                color: "var(--text)", 
-                marginBottom: "8px", 
-                width: "40px", 
-                height: "40px", 
-                display: "flex", 
-                alignItems: "center", 
-                justifyContent: "center",
-                background: "var(--surface)",
-                borderRadius: "8px"
-              }}>
-                {step.icon}
-              </div>
-              <div
-                style={{
-                  fontSize: "13px",
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                }}
-              >
-                <span style={{ color: "var(--text)", fontWeight: 600, marginRight: "4px" }}>{idx + 1}.</span> {step.label}
+          <Link
+            href="/upload"
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+              padding: "24px 16px",
+              background: "white",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-lg)",
+              textAlign: "center",
+              transition: "all 0.2s ease",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <div style={{
+              width: "48px",
+              height: "48px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--surface)",
+              borderRadius: "12px",
+            }}>
+              <Printer size={24} strokeWidth={1.5} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: "15px", marginBottom: "4px" }}>Print</div>
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                Upload & print documents
               </div>
             </div>
-          ))}
+          </Link>
+
+          <Link
+            href="/store"
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+              padding: "24px 16px",
+              background: "white",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-lg)",
+              textAlign: "center",
+              transition: "all 0.2s ease",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <div style={{
+              width: "48px",
+              height: "48px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--surface)",
+              borderRadius: "12px",
+            }}>
+              <ShoppingBag size={24} strokeWidth={1.5} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: "15px", marginBottom: "4px" }}>Store</div>
+              <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                Notebooks, pens, A4 sheets & more
+              </div>
+            </div>
+          </Link>
         </div>
       </div>
     </div>
