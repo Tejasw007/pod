@@ -4,6 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { FileUp, FileText, X } from "lucide-react";
+import DocumentPreview from "@/components/DocumentPreview";
+import { analyzeDocument, type DocInfo } from "@/lib/documentInfo";
+
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const RATE = { bw: 2, color: 10 } as const;
 
 export default function UploadPage() {
   const router = useRouter();
@@ -16,10 +21,35 @@ export default function UploadPage() {
   const [colorMode, setColorMode] = useState("bw");
   const [printSide, setPrintSide] = useState("single");
 
-  // Mock price calculation
-  const pages = file ? Math.max(1, Math.floor(file.size / 500000)) : 0; // rough estimation for demo
-  const ratePerPage = colorMode === "bw" ? 2 : 10;
+  const [analyzing, setAnalyzing] = useState(false);
+  const [info, setInfo] = useState<DocInfo | null>(null);
+  const [pages, setPages] = useState(0);
+
+  // Price is based on the real page count, not on file size
+  const ratePerPage = colorMode === "bw" ? RATE.bw : RATE.color;
   const total = pages * copies * ratePerPage;
+
+  const selectFile = async (f: File | undefined) => {
+    if (!f) return;
+    if (f.size > MAX_FILE_BYTES) {
+      alert("File is too large. Maximum size is 25 MB.");
+      return;
+    }
+    setFile(f);
+    setInfo(null);
+    setPages(0);
+    setAnalyzing(true);
+    const result = await analyzeDocument(f);
+    setInfo(result);
+    setPages(result.pages);
+    setAnalyzing(false);
+  };
+
+  const clearFile = () => {
+    setFile(null);
+    setInfo(null);
+    setPages(0);
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -33,9 +63,7 @@ export default function UploadPage() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-    }
+    selectFile(e.dataTransfer.files?.[0]);
   };
 
   const handleProceed = async () => {
@@ -95,14 +123,14 @@ export default function UploadPage() {
               <FileUp size={48} strokeWidth={1.5} color="var(--text-secondary)" />
             </div>
             <p style={{ fontWeight: 600, marginBottom: "8px" }}>Drag & drop your file here</p>
-            <p style={{ color: "var(--text-secondary)", fontSize: "13px", marginBottom: "24px" }}>Supported: PDF, DOCX, PPTX (Max 100MB)</p>
+            <p style={{ color: "var(--text-secondary)", fontSize: "13px", marginBottom: "24px" }}>Supported: PDF, DOCX, PPTX, images (Max 25MB)</p>
             
             <label className="btn-secondary" style={{ display: "inline-flex" }}>
               <span>Browse Files</span>
               <input 
                 type="file" 
                 style={{ display: "none" }} 
-                onChange={(e) => e.target.files && setFile(e.target.files[0])}
+                onChange={(e) => selectFile(e.target.files?.[0])}
                 accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.png,.jpg,.jpeg"
               />
             </label>
@@ -116,12 +144,16 @@ export default function UploadPage() {
               <div style={{ flex: 1, overflow: "hidden" }}>
                 <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</div>
                 <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                  {(file.size / 1024 / 1024).toFixed(2)} MB • {pages} pages
+                  {(file.size / 1024 / 1024).toFixed(2)} MB • {analyzing ? "counting pages…" : `${pages} ${pages === 1 ? "page" : "pages"}${info?.exact ? "" : " (estimated)"}`}
                 </div>
               </div>
-              <button onClick={() => setFile(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: "8px", display: "flex" }}>
+              <button onClick={clearFile} aria-label="Remove file" style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", padding: "8px", display: "flex" }}>
                 <X size={20} />
               </button>
+            </div>
+
+            <div style={{ borderTop: "1px solid var(--border)", padding: "20px", background: "var(--surface)" }}>
+              <DocumentPreview source={file} fileName={file.name} paperSize={paperSize} colorMode={colorMode} />
             </div>
 
             <div style={{ borderTop: "1px solid var(--border)", padding: "20px", background: "var(--surface-dim)" }}>
@@ -153,6 +185,22 @@ export default function UploadPage() {
                   </div>
                 </div>
 
+                {info && !info.exact && (
+                  <div>
+                    <label style={{ display: "block", fontSize: "13px", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 500 }}>
+                      Pages in your document
+                    </label>
+                    <div className="stepper">
+                      <button type="button" className="stepper-btn" onClick={() => setPages(Math.max(1, pages - 1))}>-</button>
+                      <span className="stepper-value">{pages}</span>
+                      <button type="button" className="stepper-btn" onClick={() => setPages(Math.min(500, pages + 1))}>+</button>
+                    </div>
+                    <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "6px" }}>
+                      We couldn&apos;t read the page count from this file. Please set it so the price is right.
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label style={{ display: "block", fontSize: "13px", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 500 }}>Copies</label>
                   <div className="stepper">
@@ -170,10 +218,12 @@ export default function UploadPage() {
           <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", padding: "16px 24px", borderTop: "1px solid var(--border)", boxShadow: "0 -4px 12px rgba(0,0,0,0.05)", zIndex: 50 }}>
             <div className="container" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 0 }}>
               <div>
-                <div style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 }}>Total Price</div>
+                <div style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 }}>
+                  {pages} {pages === 1 ? "page" : "pages"} × {copies} {copies === 1 ? "copy" : "copies"} × ₹{ratePerPage}
+                </div>
                 <div style={{ fontSize: "24px", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: "var(--text)" }}>₹{total}</div>
               </div>
-              <button className="btn-primary" onClick={handleProceed} disabled={loading} style={{ minWidth: "160px" }}>
+              <button className="btn-primary" onClick={handleProceed} disabled={loading || analyzing || pages < 1} style={{ minWidth: "160px" }}>
                 {loading ? <span className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /> : "Proceed to Pay"}
               </button>
             </div>

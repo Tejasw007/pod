@@ -6,6 +6,7 @@ import Image from "next/image";
 import QRCode from "qrcode";
 import { createClient } from "@/lib/supabase/client";
 import { Printer, CheckCircle, Smartphone, Loader2, ShoppingBag } from "lucide-react";
+import DocumentPreview from "@/components/DocumentPreview";
 import type { PodOrderEvent } from "@/lib/types";
 
 interface PodSession {
@@ -249,36 +250,15 @@ export default function KioskPage() {
                       </div>
 
                       {activeOrder.file_drive_link && (
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-                          <div style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "8px", width: "100%", textAlign: "left" }}>Document Preview</div>
-                          <div style={{
-                            border: "2px solid var(--border)",
-                            borderRadius: "8px",
-                            overflow: "hidden",
-                            position: "relative",
-                            width: "100%",
-                            maxWidth: "280px",
-                            aspectRatio: "1 / 1.414", // A4 paper ratio
-                            background: "#f8f9fa",
-                            boxShadow: "var(--shadow-sm)"
-                          }}>
-                            <iframe
-                              src={activeOrder.file_drive_link.replace(/\/view.*/, "/preview")}
-                              title="Document Preview"
-                              style={{
-                                position: "absolute",
-                                top: 0,
-                                left: 0,
-                                width: "200%",
-                                height: "200%",
-                                transform: "scale(0.5)",
-                                transformOrigin: "top left",
-                                border: "none",
-                                pointerEvents: "none",
-                                filter: activeOrder.color_mode === "bw" ? "grayscale(100%) contrast(1.1)" : "none"
-                              }}
-                            />
-                          </div>
+                        <div>
+                          <div style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "8px" }}>Document Preview</div>
+                          <DocumentPreview
+                            source={activeOrder.file_drive_link}
+                            fileName={activeOrder.file_name}
+                            paperSize={activeOrder.paper_size}
+                            colorMode={activeOrder.color_mode}
+                            maxWidth={300}
+                          />
                         </div>
                       )}
                     </>

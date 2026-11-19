@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { cookies } from "next/headers";
+import { PDFParse } from "pdf-parse";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const PAPER_SIZES = ["A4", "A3", "Letter"];
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     const paperSize = formData.get("paperSize") as string;
     const colorMode = formData.get("colorMode") as string;
     const printSide = formData.get("printSide") as string;
-    const pages = parseInt(formData.get("pages") as string, 10);
+    let pages = parseInt(formData.get("pages") as string, 10);
 
     if (!(file instanceof File) || file.size === 0) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -32,6 +33,18 @@ export async function POST(request: Request) {
       !PRINT_SIDES.includes(printSide)
     ) {
       return NextResponse.json({ error: "Invalid print options" }, { status: 400 });
+    }
+    // For PDFs the server reads the real page count, so the client can't
+    // under-report pages to pay less.
+    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+      try {
+        const parser = new PDFParse({ data: new Uint8Array(await file.arrayBuffer()) });
+        const info = await parser.getInfo();
+        await parser.destroy();
+        if (info.total > 0) pages = info.total;
+      } catch (e) {
+        console.warn("PDF page count failed, using client value:", e);
+      }
     }
     // Price is computed server-side; the client-supplied total is ignored.
     const total = pages * copies * (colorMode === "bw" ? 2 : 10);
