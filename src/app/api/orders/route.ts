@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { cookies } from "next/headers";
-import { PDFParse } from "pdf-parse";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const PAPER_SIZES = ["A4", "A3", "Letter"];
@@ -38,6 +37,9 @@ export async function POST(request: Request) {
     // under-report pages to pay less.
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
       try {
+        // Loaded lazily: if the PDF library can't start in this runtime, the
+        // order must still go through with the client-reported page count.
+        const { PDFParse } = await import("pdf-parse");
         const parser = new PDFParse({ data: new Uint8Array(await file.arrayBuffer()) });
         const info = await parser.getInfo();
         await parser.destroy();
