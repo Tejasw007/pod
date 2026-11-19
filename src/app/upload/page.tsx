@@ -87,14 +87,15 @@ export default function UploadPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to create order");
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to create order (${res.status})`);
       }
 
       const { orderId } = await res.json();
       router.push(`/payment/${orderId}`);
     } catch (err) {
       console.error(err);
-      alert("Something went wrong");
+      alert(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
     }
   };
