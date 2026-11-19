@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ShoppingCart, Plus, Minus, Search, Package } from "lucide-react";
-import { addToCart, getCart, getCartCount, type CartItem } from "@/lib/cart";
+import { ShoppingCart, Plus, Search, Package } from "lucide-react";
+import { addToCart, useCart, getCartCount } from "@/lib/cart";
 
 interface Product {
   id: string;
@@ -38,34 +38,34 @@ export default function StorePage() {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
   const [search, setSearch] = useState("");
-  const [cartCount, setCartCount] = useState(0);
+  const cartCount = getCartCount(useCart());
   const [addedId, setAddedId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchProducts();
-    setCartCount(getCartCount(getCart()));
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/store/products");
+        const { products } = await res.json();
+        if (!cancelled) setProducts(products || []);
+      } catch {
+        console.error("Failed to load products");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch("/api/store/products");
-      const { products } = await res.json();
-      setProducts(products || []);
-    } catch {
-      console.error("Failed to load products");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleAdd = (product: Product) => {
-    const cart = addToCart({
+    addToCart({
       productId: product.id,
       name: product.name,
       price: product.price,
       category: product.category,
     });
-    setCartCount(getCartCount(cart));
     setAddedId(product.id);
     setTimeout(() => setAddedId(null), 800);
   };

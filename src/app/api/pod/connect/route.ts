@@ -1,56 +1,52 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr"; 
-import { createAdminClient } from "../../../../lib/supabase/admin";
-import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { TABLE, READY_STATUS, parseKind, broadcastToPod } from "@/lib/podOrders";
+import type { OrderKind } from "@/lib/types";
 
 export async function POST(request: Request) {
   try {
-    const { type, token, code, orderId, podDbId } = await request.json();
-
+    const { type, token, code, orderId, podDbId, orderType } = await request.json();
     const supabaseAdmin = createAdminClient();
 
-    // 1. Kiosk Manual 5-Digit Code Entry
+    // 1. Kiosk manual 5-digit code entry (print and stationery share the code space)
     if (type === "CODE") {
-      if (!code || !podDbId) return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
-
-      // Find order by code
-      const { data: order } = await supabaseAdmin
-        .from("print_orders")
-        .select("id")
-        .eq("pickup_code", code)
-        .eq("status", "READY_FOR_PRINT")
-        .single();
-
-      if (!order) return NextResponse.json({ error: "Invalid code or order not ready" }, { status: 404 });
-
-      // Connect order to pod
-      const { data: updatedOrder } = await supabaseAdmin
-        .from("print_orders")
-        .update({ status: "POD_CONNECTED", pod_id: podDbId })
-        .eq("id", order.id)
-        .select()
-        .single();
-
-      if (updatedOrder) {
-        let userName = "Student";
-        const { data: profile } = await supabaseAdmin.from("profiles").select("full_name").eq("id", updatedOrder.user_id).single();
-        if (profile) userName = profile.full_name;
-
-        await supabaseAdmin.channel(`pod_${podDbId}`).send({
-          type: "broadcast",
-          event: "order_update",
-          payload: { ...updatedOrder, user_name: userName }
-        });
+      if (typeof code !== "string" || !/^\d{5}$/.test(code) || !podDbId) {
+        return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
       }
 
-      return NextResponse.json({ success: true, orderId: order.id });
+      for (const kind of ["print", "stationery"] as OrderKind[]) {
+        const { data: order } = await supabaseAdmin
+          .from(TABLE[kind])
+          .select("id")
+          .eq("pickup_code", code)
+          .eq("status", READY_STATUS[kind])
+          .maybeSingle();
+        if (!order) continue;
+
+        const { data: updated } = await supabaseAdmin
+          .from(TABLE[kind])
+          .update({ status: "POD_CONNECTED", pod_id: podDbId })
+          .eq("id", order.id)
+          .eq("status", READY_STATUS[kind])
+          .select("id")
+          .maybeSingle();
+        if (!updated) continue;
+
+        await broadcastToPod(podDbId, kind, order.id);
+        return NextResponse.json({ success: true, orderId: order.id, orderType: kind });
+      }
+
+      return NextResponse.json({ error: "Invalid code or order not ready" }, { status: 404 });
     }
 
-    // 2. Student Phone QR Scan
+    // 2. Student phone QR scan
     if (type === "TOKEN") {
-      if (!token || !orderId) return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+      if (!token || !orderId) {
+        return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+      }
+      const kind = parseKind(orderType);
 
-      // Validate token
       const { data: session } = await supabaseAdmin
         .from("pod_sessions")
         .select("pod_id, is_active, expires_at")
@@ -61,42 +57,25 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "QR code expired or invalid" }, { status: 400 });
       }
 
-      // Check auth
-      const cookieStore = await cookies();
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } }
-      );
-
+      const supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-      // Connect order to pod
-      const { data: updatedOrder, error } = await supabase
-        .from("print_orders")
+      const { data: updated, error } = await supabase
+        .from(TABLE[kind])
         .update({ status: "POD_CONNECTED", pod_id: session.pod_id })
         .eq("id", orderId)
         .eq("user_id", user.id)
-        .eq("status", "READY_FOR_PRINT")
-        .select()
-        .single();
+        .eq("status", READY_STATUS[kind])
+        .select("id")
+        .maybeSingle();
 
-      if (error) return NextResponse.json({ error: "Failed to connect order" }, { status: 400 });
-
-      if (updatedOrder) {
-        let userName = "Student";
-        const { data: profile } = await supabaseAdmin.from("profiles").select("full_name").eq("id", user.id).single();
-        if (profile) userName = profile.full_name;
-
-        await supabaseAdmin.channel(`pod_${session.pod_id}`).send({
-          type: "broadcast",
-          event: "order_update",
-          payload: { ...updatedOrder, user_name: userName }
-        });
+      if (error || !updated) {
+        return NextResponse.json({ error: "Failed to connect order" }, { status: 400 });
       }
 
-      return NextResponse.json({ success: true });
+      await broadcastToPod(session.pod_id, kind, orderId);
+      return NextResponse.json({ success: true, orderType: kind });
     }
 
     return NextResponse.json({ error: "Invalid type" }, { status: 400 });

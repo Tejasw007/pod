@@ -3,20 +3,38 @@ import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { cookies } from "next/headers";
 
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const PAPER_SIZES = ["A4", "A3", "Letter"];
+const COLOR_MODES = ["bw", "color"];
+const PRINT_SIDES = ["single", "duplex"];
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const file = formData.get("file");
     const copies = parseInt(formData.get("copies") as string, 10);
     const paperSize = formData.get("paperSize") as string;
     const colorMode = formData.get("colorMode") as string;
     const printSide = formData.get("printSide") as string;
     const pages = parseInt(formData.get("pages") as string, 10);
-    const total = parseFloat(formData.get("total") as string);
 
-    if (!file) {
+    if (!(file instanceof File) || file.size === 0) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
+    if (file.size > MAX_FILE_BYTES) {
+      return NextResponse.json({ error: "File too large (max 25 MB)" }, { status: 413 });
+    }
+    if (
+      !Number.isInteger(copies) || copies < 1 || copies > 10 ||
+      !Number.isInteger(pages) || pages < 1 || pages > 2000 ||
+      !PAPER_SIZES.includes(paperSize) ||
+      !COLOR_MODES.includes(colorMode) ||
+      !PRINT_SIDES.includes(printSide)
+    ) {
+      return NextResponse.json({ error: "Invalid print options" }, { status: 400 });
+    }
+    // Price is computed server-side; the client-supplied total is ignored.
+    const total = pages * copies * (colorMode === "bw" ? 2 : 10);
 
     // Get auth user
     const cookieStore = await cookies();
@@ -37,14 +55,14 @@ export async function POST(request: Request) {
     }
 
     // Upload to Supabase Storage
-    const fileExt = file.name.split('.').pop();
-    const uniqueFileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileExt = (file.name.split(".").pop() ?? "bin").replace(/[^a-zA-Z0-9]/g, "").slice(0, 8) || "bin";
+    const uniqueFileName = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
     let fileDriveId = null;
     let fileDriveLink = null;
     
     try {
       const supabaseAdmin = createAdminClient();
-      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      const { error: uploadError } = await supabaseAdmin.storage
         .from('print_documents')
         .upload(uniqueFileName, file, { contentType: file.type });
 
@@ -58,6 +76,7 @@ export async function POST(request: Request) {
       fileDriveLink = publicUrl;
     } catch (e) {
       console.error("Supabase Storage Upload Failed:", e);
+      return NextResponse.json({ error: "File upload failed" }, { status: 502 });
     }
 
     // Insert order into Supabase

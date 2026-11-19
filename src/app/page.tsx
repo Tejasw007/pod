@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Upload, ShoppingBag, Printer, ArrowRight } from "lucide-react";
+import { ShoppingBag, Printer } from "lucide-react";
 
 export default function HomePage() {
   return (

@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import styles from "./ReceiptPrinter.module.css";
 import html2canvas from "html2canvas";
 
+export interface ReceiptLine {
+  label: string;
+  amount?: number;
+}
+
 interface ReceiptPrinterProps {
   orderId: string;
-  fileName: string;
-  pages: number;
-  copies: number;
-  ratePerPage: number;
+  /** One receipt row per line item (a document, or each stationery product) */
+  lines: ReceiptLine[];
+  kind?: "print" | "stationery";
   grandTotal: number;
   pickupCode?: string;
   onTorn?: () => void;
@@ -17,10 +21,8 @@ interface ReceiptPrinterProps {
 
 export default function ReceiptPrinter({
   orderId,
-  fileName,
-  pages,
-  copies,
-  ratePerPage,
+  lines,
+  kind = "print",
   grandTotal,
   pickupCode,
   onTorn,
@@ -29,17 +31,13 @@ export default function ReceiptPrinter({
   const [isStamped, setIsStamped] = useState(false);
   const [isTearing, setIsTearing] = useState(false);
   const [isTorn, setIsTorn] = useState(false);
-  const [barcodeSpans, setBarcodeSpans] = useState<number[]>([]);
+  // Random barcode widths, generated once on mount (this component only
+  // renders client-side, after the order has been fetched)
+  const [barcodeSpans] = useState<number[]>(() =>
+    Array.from({ length: 40 }).map(() => (Math.random() > 0.7 ? 3 : Math.random() > 0.4 ? 2 : 1))
+  );
 
   const receiptRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Generate barcode random widths
-    const spans = Array.from({ length: 40 }).map(() => {
-      return Math.random() > 0.7 ? 3 : Math.random() > 0.4 ? 2 : 1;
-    });
-    setBarcodeSpans(spans);
-  }, []);
 
   const today = new Date()
     .toLocaleDateString("en-GB", {
@@ -101,7 +99,7 @@ export default function ReceiptPrinter({
                 isPrinting ? styles.printing : ""
               } ${isStamped ? styles.stamped : ""}`}
               style={{
-                height: isPrinting ? "320px" : "0",
+                height: isPrinting ? `${320 + Math.max(0, lines.length - 2) * 24}px` : "0",
               }}
             >
               <div
@@ -123,30 +121,25 @@ export default function ReceiptPrinter({
                 <div className={styles.rSub}>Order #{orderId.slice(0, 8)}</div>
 
                 <div className="mb-4">
-                  <div
-                    className={styles.rLine}
-                    style={{ "--i": 0 } as React.CSSProperties}
-                  >
-                    <span>{fileName}</span>
-                  </div>
-                  <div
-                    className={styles.rLine}
-                    style={{ "--i": 1 } as React.CSSProperties}
-                  >
-                    <span>
-                      {pages} pages x {copies} copies
-                    </span>
-                    <span>₹{pages * copies * ratePerPage}</span>
-                  </div>
+                  {lines.map((line, i) => (
+                    <div
+                      key={i}
+                      className={styles.rLine}
+                      style={{ "--i": i } as React.CSSProperties}
+                    >
+                      <span>{line.label}</span>
+                      {line.amount !== undefined && <span>₹{line.amount}</span>}
+                    </div>
+                  ))}
                 </div>
 
                 <div className={styles.rTotalBlock}>
                   <div
                     className={styles.rLine}
-                    style={{ "--i": 2 } as React.CSSProperties}
+                    style={{ "--i": lines.length } as React.CSSProperties}
                   >
                     <span>Subtotal</span>
-                    <span>₹{pages * copies * ratePerPage}</span>
+                    <span>₹{grandTotal}</span>
                   </div>
                 </div>
 
@@ -155,7 +148,7 @@ export default function ReceiptPrinter({
                   <span>₹{grandTotal}</span>
                 </div>
 
-                <div className={styles.rThanks}>Ready for Print!</div>
+                <div className={styles.rThanks}>{kind === "print" ? "Ready for Print!" : "Ready for Pickup!"}</div>
 
                 <div className={styles.barcode}>
                   {barcodeSpans.map((w, i) => (
@@ -194,7 +187,7 @@ export default function ReceiptPrinter({
                   marginBottom: "24px",
                 }}
               >
-                Your print order is ready.
+                {kind === "print" ? "Your print order is ready." : "Your stationery order is ready."}
               </div>
             </>
           )}
@@ -263,7 +256,7 @@ export default function ReceiptPrinter({
                   marginBottom: "16px",
                 }}
               >
-                Head to any PrintPod to collect your print.
+                {kind === "print" ? "Head to any PrintPod to collect your print." : "Head to any PrintPod to collect your items."}
               </div>
               {pickupCode && (
                 <div style={{ background: "var(--surface-dim)", padding: "16px", borderRadius: "12px", display: "inline-block", marginBottom: "24px" }}>

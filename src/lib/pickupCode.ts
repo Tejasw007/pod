@@ -1,34 +1,39 @@
+import { randomInt } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { PRINT_ACTIVE, STATIONERY_ACTIVE } from "@/lib/types";
 
 /**
- * Generates a random 5-digit pickup code that doesn't collide
- * with any active (READY_FOR_PRINT) orders.
+ * Generates a random 5-digit pickup code that doesn't collide with any active
+ * print OR stationery order (the kiosk looks codes up across both).
  */
 export async function generatePickupCode(): Promise<string> {
   const supabase = createAdminClient();
-  let code: string;
-  let exists = true;
 
-  // Keep generating until we find a unique code
-  while (exists) {
-    code = String(Math.floor(10000 + Math.random() * 90000));
+  // Bounded retries so a DB outage can't spin forever
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const code = String(randomInt(10000, 100000));
 
-    const { data } = await supabase
-      .from("print_orders")
-      .select("id")
-      .eq("pickup_code", code)
-      .in("status", [
-        "READY_FOR_PRINT",
-        "POD_CONNECTED",
-        "AWAITING_CONFIRMATION",
-        "PRINTING",
-      ])
-      .limit(1);
+    const [prints, stationery] = await Promise.all([
+      supabase
+        .from("print_orders")
+        .select("id")
+        .eq("pickup_code", code)
+        .in("status", PRINT_ACTIVE)
+        .limit(1),
+      supabase
+        .from("stationery_orders")
+        .select("id")
+        .eq("pickup_code", code)
+        .in("status", STATIONERY_ACTIVE)
+        .limit(1),
+    ]);
 
-    exists = (data?.length ?? 0) > 0;
+    if (prints.error) throw prints.error;
+    if (stationery.error) throw stationery.error;
+    if (!prints.data?.length && !stationery.data?.length) return code;
   }
 
-  return code!;
+  throw new Error("Could not generate a unique pickup code");
 }
 
 /**

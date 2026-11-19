@@ -1,97 +1,105 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 import Image from "next/image";
 import Link from "next/link";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { ScanLine, ClipboardList, MapPin, ShoppingBag, Printer } from "lucide-react";
+import {
+  PRINT_ACTIVE,
+  PRINT_DONE,
+  STATIONERY_ACTIVE,
+  STATIONERY_DONE,
+  type OrderKind,
+  type PrintOrder,
+  type StationeryOrder,
+} from "@/lib/types";
 
 export default function OrdersPage() {
-  const [printOrders, setPrintOrders] = useState<any[]>([]);
-  const [stationeryOrders, setStationeryOrders] = useState<any[]>([]);
+  const [printOrders, setPrintOrders] = useState<PrintOrder[]>([]);
+  const [stationeryOrders, setStationeryOrders] = useState<StationeryOrder[]>([]);
   const [tab, setTab] = useState<"print" | "stationery">("print");
   const [filter, setFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
-  const supabase = createClient();
-
-  const fetchOrders = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // Fetch print orders
-    const { data: prints } = await supabase
-      .from("print_orders")
-      .select("*, pods(name, location)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (prints) setPrintOrders(prints);
-
-    // Fetch stationery orders
-    const { data: stationery } = await supabase
-      .from("stationery_orders")
-      .select("*, stationery_order_items(*, stationery_products(name, price))")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (stationery) setStationeryOrders(stationery);
-
-    setLoading(false);
-  };
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    fetchOrders();
+    let cancelled = false;
 
-    // Subscribe to real-time print order updates
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+
+      const [{ data: prints }, { data: stationery }] = await Promise.all([
+        supabase
+          .from("print_orders")
+          .select("*, pods(name, location)")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("stationery_orders")
+          .select("*, pods(name, location), stationery_order_items(*, stationery_products(name, price))")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+      ]);
+      if (cancelled) return;
+      if (prints) setPrintOrders(prints as unknown as PrintOrder[]);
+      if (stationery) setStationeryOrders(stationery as unknown as StationeryOrder[]);
+      setLoading(false);
+    })();
+
+    // Real-time status updates (pod changes show up live)
     const printChannel = supabase
       .channel("orders_channel")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "print_orders" },
-        (payload: any) => {
+        (payload) => {
+          const next = payload.new as Partial<PrintOrder> & { id: string };
           setPrintOrders((prev) =>
-            prev.map((o) =>
-              o.id === payload.new.id ? { ...o, status: payload.new.status } : o
-            )
+            prev.map((o) => (o.id === next.id ? { ...o, status: next.status ?? o.status } : o))
           );
         }
       )
       .subscribe();
 
-    // Subscribe to real-time stationery order updates
     const stationeryChannel = supabase
       .channel("stationery_orders_channel")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "stationery_orders" },
-        (payload: any) => {
+        (payload) => {
+          const next = payload.new as Partial<StationeryOrder> & { id: string };
           setStationeryOrders((prev) =>
-            prev.map((o) =>
-              o.id === payload.new.id ? { ...o, status: payload.new.status } : o
-            )
+            prev.map((o) => (o.id === next.id ? { ...o, status: next.status ?? o.status } : o))
           );
         }
       )
       .subscribe();
 
     return () => {
+      cancelled = true;
       supabase.removeChannel(printChannel);
       supabase.removeChannel(stationeryChannel);
     };
   }, [supabase]);
 
-  const handleConfirmPrint = async (orderId: string) => {
+  const handleConfirm = async (orderId: string, kind: OrderKind) => {
     try {
       const res = await fetch("/api/pod/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "CONFIRM_PRINT", orderId }),
+        body: JSON.stringify({
+          action: kind === "print" ? "CONFIRM_PRINT" : "CONFIRM_DISPENSE",
+          orderType: kind,
+          orderId,
+        }),
       });
       if (!res.ok) throw new Error("Failed to confirm");
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to confirm");
     }
   };
 
@@ -100,6 +108,7 @@ export default function OrdersPage() {
       case "READY_FOR_PRINT": return "badge-ready";
       case "POD_CONNECTED": return "badge-ready";
       case "PRINTING": return "badge-printing";
+      case "DISPENSING": return "badge-printing";
       case "PRINTED": return "badge-printed";
       case "CANCELLED": return "badge-cancelled";
       case "PRINT_FAILED": return "badge-failed";
@@ -116,10 +125,10 @@ export default function OrdersPage() {
   // Print order filters
   const filteredPrint = printOrders.filter((o) => {
     if (filter === "ACTIVE") {
-      return ["READY_FOR_PRINT", "POD_CONNECTED", "AWAITING_CONFIRMATION", "PRINTING"].includes(o.status);
+      return PRINT_ACTIVE.includes(o.status);
     }
     if (filter === "COMPLETED") {
-      return ["PRINTED", "CANCELLED", "PRINT_FAILED"].includes(o.status);
+      return PRINT_DONE.includes(o.status);
     }
     return true;
   });
@@ -127,10 +136,10 @@ export default function OrdersPage() {
   // Stationery order filters
   const filteredStationery = stationeryOrders.filter((o) => {
     if (filter === "ACTIVE") {
-      return ["CREATED", "PAID", "READY_FOR_PICKUP"].includes(o.status);
+      return STATIONERY_ACTIVE.includes(o.status);
     }
     if (filter === "COMPLETED") {
-      return ["PICKED_UP", "CANCELLED"].includes(o.status);
+      return STATIONERY_DONE.includes(o.status);
     }
     return true;
   });
@@ -253,7 +262,7 @@ export default function OrdersPage() {
                         </button>
                       )}
                       {order.status === "POD_CONNECTED" && (
-                        <button className="btn-primary" style={{ padding: "8px 16px", fontSize: "13px" }} onClick={() => handleConfirmPrint(order.id)}>
+                        <button className="btn-primary" style={{ padding: "8px 16px", fontSize: "13px" }} onClick={() => handleConfirm(order.id, "print")}>
                           Confirm & Print
                         </button>
                       )}
@@ -288,7 +297,7 @@ export default function OrdersPage() {
 
                   {/* Line items */}
                   <div style={{ marginBottom: "16px" }}>
-                    {order.stationery_order_items?.map((item: any) => (
+                    {order.stationery_order_items?.map((item) => (
                       <div key={item.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "4px" }}>
                         <span style={{ color: "var(--text)", fontWeight: 500 }}>
                           {item.stationery_products?.name || "Item"} × {item.quantity}
@@ -301,7 +310,7 @@ export default function OrdersPage() {
                   </div>
 
                   {/* Pickup code */}
-                  {order.pickup_code && ["PAID", "READY_FOR_PICKUP"].includes(order.status) && (
+                  {order.pickup_code && order.status === "READY_FOR_PICKUP" && (
                     <div style={{ background: "var(--surface-dim)", padding: "12px", borderRadius: "8px", marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontSize: "13px", color: "var(--text-secondary)", fontWeight: 500 }}>Pickup Code</span>
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "20px", fontWeight: 700, letterSpacing: "2px", color: "var(--primary-dark)" }}>
@@ -310,11 +319,32 @@ export default function OrdersPage() {
                     </div>
                   )}
 
+                  {order.pods && (
+                    <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "16px", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <MapPin size={14} /> {order.pods.name} - {order.pods.location}
+                    </div>
+                  )}
+
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px dashed var(--border)", paddingTop: "16px" }}>
                     <span style={{ fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", fontSize: "16px" }}>₹{order.total_price}</span>
-                    <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-                      {order.stationery_order_items?.length || 0} {(order.stationery_order_items?.length || 0) === 1 ? "item" : "items"}
-                    </span>
+
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      {order.status === "PAYMENT_PENDING" && (
+                        <Link href={`/payment/${order.id}?type=stationery`} className="btn-primary" style={{ padding: "8px 16px", fontSize: "13px" }}>
+                          Pay Now
+                        </Link>
+                      )}
+                      {order.status === "READY_FOR_PICKUP" && (
+                        <button className="btn-secondary" style={{ padding: "8px 16px", fontSize: "13px", color: "var(--primary)" }} onClick={() => alert("Scan the QR code at the pod or enter your pickup code on the screen.")}>
+                          How to collect?
+                        </button>
+                      )}
+                      {order.status === "POD_CONNECTED" && (
+                        <button className="btn-primary" style={{ padding: "8px 16px", fontSize: "13px" }} onClick={() => handleConfirm(order.id, "stationery")}>
+                          Confirm & Collect
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -323,8 +353,8 @@ export default function OrdersPage() {
         )}
       </div>
 
-      {/* Floating Action Button for Scanning (print tab only) */}
-      {tab === "print" && (
+      {/* Floating Action Button for scanning a pod QR code */}
+      {(
         <button
           onClick={() => setScanning(true)}
           style={{

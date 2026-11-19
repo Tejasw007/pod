@@ -1,56 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
-import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, CheckCircle } from "lucide-react";
+import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from "lucide-react";
 import {
-  getCart,
+  useCart,
   updateQuantity,
   removeFromCart,
   clearCart,
   getCartTotal,
   getCartCount,
-  type CartItem,
 } from "@/lib/cart";
 
 export default function CartPage() {
   const router = useRouter();
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const cart = useCart();
   const [placing, setPlacing] = useState(false);
-  const [orderResult, setOrderResult] = useState<{ orderId: string; pickupCode: string } | null>(null);
-
-  useEffect(() => {
-    setCart(getCart());
-  }, []);
 
   const handleQty = (productId: string, delta: number) => {
     const item = cart.find((c) => c.productId === productId);
     if (!item) return;
     const newQty = item.quantity + delta;
-    if (newQty <= 0) {
-      setCart(removeFromCart(productId));
-    } else {
-      setCart(updateQuantity(productId, newQty));
-    }
+    if (newQty <= 0) removeFromCart(productId);
+    else updateQuantity(productId, Math.min(newQty, 99));
   };
 
   const handleRemove = (productId: string) => {
-    setCart(removeFromCart(productId));
+    removeFromCart(productId);
   };
 
+  // Same flow as printing: create the order (PAYMENT_PENDING), then check out.
   const handlePlaceOrder = async () => {
     if (cart.length === 0) return;
     setPlacing(true);
 
     try {
-      // 1. Create order
-      const items = cart.map((c) => ({
-        productId: c.productId,
-        quantity: c.quantity,
-        unitPrice: c.price,
-      }));
+      // Prices are resolved server-side; only ids and quantities are sent.
+      const items = cart.map((c) => ({ productId: c.productId, quantity: c.quantity }));
 
       const res = await fetch("/api/store/orders", {
         method: "POST",
@@ -58,23 +45,15 @@ export default function CartPage() {
         body: JSON.stringify({ items }),
       });
 
+      if (res.status === 401) {
+        router.push("/login?redirect=/cart");
+        return;
+      }
       if (!res.ok) throw new Error("Failed to create order");
       const { orderId } = await res.json();
 
-      // 2. Mock pay
-      const payRes = await fetch("/api/store/orders/pay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
-
-      if (!payRes.ok) throw new Error("Payment failed");
-      const { pickupCode } = await payRes.json();
-
-      // 3. Clear cart & show success
       clearCart();
-      setCart([]);
-      setOrderResult({ orderId, pickupCode });
+      router.push(`/payment/${orderId}?type=stationery`);
     } catch (err) {
       console.error(err);
       alert("Something went wrong. Please try again.");
@@ -85,60 +64,6 @@ export default function CartPage() {
 
   const total = getCartTotal(cart);
   const count = getCartCount(cart);
-
-  // Success state
-  if (orderResult) {
-    return (
-      <div className="container" style={{ paddingTop: "60px", textAlign: "center" }}>
-        <div style={{
-          width: "72px",
-          height: "72px",
-          borderRadius: "50%",
-          background: "#ECFDF5",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          margin: "0 auto 24px",
-        }}>
-          <CheckCircle size={36} color="#047857" />
-        </div>
-
-        <h1 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "8px" }}>Order Placed!</h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "32px" }}>
-          Show this code at the pod to collect your items.
-        </p>
-
-        <div style={{
-          background: "var(--surface-dim)",
-          borderRadius: "var(--radius-lg)",
-          padding: "24px",
-          marginBottom: "32px",
-        }}>
-          <div style={{ fontSize: "13px", color: "var(--text-secondary)", fontWeight: 500, marginBottom: "8px" }}>
-            Pickup Code
-          </div>
-          <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: "36px",
-            fontWeight: 700,
-            letterSpacing: "4px",
-            color: "var(--primary-dark)",
-          }}>
-            {orderResult.pickupCode}
-          </div>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <Link href="/orders" className="btn-primary" style={{ width: "100%", textDecoration: "none" }}>
-            View My Orders
-          </Link>
-          <Link href="/store" className="btn-secondary" style={{ width: "100%", textDecoration: "none" }}>
-            Continue Shopping
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="container" style={{ paddingBottom: "120px" }}>
@@ -325,7 +250,7 @@ export default function CartPage() {
             >
               {placing
                 ? <span className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />
-                : "Place Order"
+                : "Proceed to Pay"
               }
             </button>
           </div>

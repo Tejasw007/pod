@@ -1,85 +1,78 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { createAdminClient } from "../../../../lib/supabase/admin";
-import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { TABLE, parseKind, broadcastToPod } from "@/lib/podOrders";
+
+// Per-workflow state names
+const FLOW = {
+  print: { running: "PRINTING", done: "PRINTED" },
+  stationery: { running: "DISPENSING", done: "PICKED_UP" },
+} as const;
+
 export async function POST(request: Request) {
   try {
-    const { orderId, action } = await request.json();
-    if (!orderId || !action) return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
-
+    const { orderId, action, orderType } = await request.json();
+    if (!orderId || !action) {
+      return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+    }
+    const kind = parseKind(orderType);
+    const flow = FLOW[kind];
     const supabaseAdmin = createAdminClient();
 
-    // 1. HARDWARE SIMULATION (Kiosk calls PRINT_COMPLETE)
-    if (action === "PRINT_COMPLETE") {
+    // 1. HARDWARE SIMULATION (kiosk reports the job finished)
+    if (action === "PRINT_COMPLETE" || action === "DISPENSE_COMPLETE") {
       const { data: order } = await supabaseAdmin
-        .from("print_orders")
-        .select("file_drive_id, pod_id")
+        .from(TABLE[kind])
+        .select(kind === "print" ? "file_drive_id, pod_id" : "pod_id")
         .eq("id", orderId)
-        .eq("status", "PRINTING")
+        .eq("status", flow.running)
         .single();
 
-      if (!order) return NextResponse.json({ error: "Order not printing" }, { status: 400 });
+      if (!order) {
+        return NextResponse.json({ error: `Order not ${flow.running.toLowerCase()}` }, { status: 400 });
+      }
+      const row = order as unknown as { file_drive_id?: string | null; pod_id: string | null };
 
-      // Clean up file from Supabase Storage as per PRD Section 20
-      if (order.file_drive_id) {
-        try {
-          await supabaseAdmin.storage.from('print_documents').remove([order.file_drive_id]);
-          console.log(`Deleted file ${order.file_drive_id} from Storage for order ${orderId}`);
-        } catch (e) {
-          console.error("Failed to delete file from Storage:", e);
-        }
+      // Clean up the uploaded document once printed (PRD Section 20)
+      if (kind === "print" && row.file_drive_id) {
+        const { error: rmError } = await supabaseAdmin.storage
+          .from("print_documents")
+          .remove([row.file_drive_id]);
+        if (rmError) console.error("Failed to delete file from Storage:", rmError);
       }
 
-      // Mark as PRINTED
-      const { data: updatedOrder } = await supabaseAdmin
-        .from("print_orders")
-        .update({ status: "PRINTED" })
+      const { data: updated } = await supabaseAdmin
+        .from(TABLE[kind])
+        .update({ status: flow.done })
         .eq("id", orderId)
-        .select()
-        .single();
+        .eq("status", flow.running)
+        .select("id")
+        .maybeSingle();
 
-      if (updatedOrder && order.pod_id) {
-        await supabaseAdmin.channel(`pod_${order.pod_id}`).send({
-          type: "broadcast",
-          event: "order_update",
-          payload: updatedOrder
-        });
-      }
-
+      if (updated && row.pod_id) await broadcastToPod(row.pod_id, kind, orderId);
       return NextResponse.json({ success: true });
     }
 
-    // 2. STUDENT PHONE CONFIRMATION (Student clicks CONFIRM & PRINT)
-    if (action === "CONFIRM_PRINT") {
-      const cookieStore = await cookies();
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } }
-      );
-
+    // 2. STUDENT CONFIRMATION (Confirm & Print / Confirm & Collect)
+    if (action === "CONFIRM_PRINT" || action === "CONFIRM_DISPENSE") {
+      const supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-      const { data: updatedOrder, error } = await supabase
-        .from("print_orders")
-        .update({ status: "PRINTING" })
+      const { data: updated, error } = await supabase
+        .from(TABLE[kind])
+        .update({ status: flow.running })
         .eq("id", orderId)
         .eq("user_id", user.id)
         .eq("status", "POD_CONNECTED")
-        .select()
-        .single();
+        .select("id, pod_id")
+        .maybeSingle();
 
-      if (error) return NextResponse.json({ error: "Failed to start printing" }, { status: 400 });
-
-      if (updatedOrder && updatedOrder.pod_id) {
-        await supabaseAdmin.channel(`pod_${updatedOrder.pod_id}`).send({
-          type: "broadcast",
-          event: "order_update",
-          payload: updatedOrder
-        });
+      if (error || !updated) {
+        return NextResponse.json({ error: "Failed to start" }, { status: 400 });
       }
 
+      if (updated.pod_id) await broadcastToPod(updated.pod_id, kind, orderId);
       return NextResponse.json({ success: true });
     }
 
