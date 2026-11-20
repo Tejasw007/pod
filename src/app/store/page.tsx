@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { ShoppingCart, Plus, Search, Package } from "lucide-react";
 import { addToCart, useCart, getCartCount } from "@/lib/cart";
+import { productImage } from "@/lib/productImage";
 
 interface Product {
   id: string;
@@ -13,6 +14,7 @@ interface Product {
   category: string;
   price: number;
   in_stock: boolean;
+  image_url?: string | null;
 }
 
 const CATEGORIES = [
@@ -225,6 +227,15 @@ export default function StorePage() {
                       transition: "box-shadow 0.2s ease",
                     }}
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={productImage(product.name, product.image_url)}
+                      alt={product.name}
+                      loading="lazy"
+                      width={64}
+                      height={64}
+                      style={{ width: "64px", height: "64px", borderRadius: "12px", flexShrink: 0, objectFit: "cover", background: "var(--surface-dim)" }}
+                    />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "2px" }}>{product.name}</div>
                       {product.description && (

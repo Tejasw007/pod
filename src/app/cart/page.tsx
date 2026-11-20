@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { productImage } from "@/lib/productImage";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from "lucide-react";
 import {
   useCart,
@@ -117,6 +118,14 @@ export default function CartPage() {
                   borderRadius: "var(--radius-lg)",
                 }}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={productImage(item.name)}
+                  alt={item.name}
+                  width={48}
+                  height={48}
+                  style={{ width: "48px", height: "48px", borderRadius: "10px", flexShrink: 0, objectFit: "cover" }}
+                />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "4px" }}>{item.name}</div>
                   <div style={{
